@@ -3,17 +3,23 @@ import Foundation
 @MainActor
 final class AssistantPreferences: ObservableObject {
     enum SpeechEngine: String, CaseIterable, Identifiable {
-        case clips, apple, whisperx
+        case clips, apple
         var id: String { rawValue }
         var title: String {
             switch self {
             case .clips: return "Аудиофрагменты · быстро"
             case .apple: return "Диктовка macOS · старый режим"
-            case .whisperx: return "WhisperX"
             }
         }
         static var available: [SpeechEngine] {
             allCases.filter { $0 != .clips || AudioClipTranscriber.isSupported }
+        }
+
+        static func restore(_ rawValue: String?, supportsClips: Bool) -> SpeechEngine {
+            guard let saved = SpeechEngine(rawValue: rawValue ?? "") else {
+                return supportsClips ? .clips : .apple
+            }
+            return saved == .clips && !supportsClips ? .apple : saved
         }
     }
 
@@ -29,9 +35,6 @@ final class AssistantPreferences: ObservableObject {
     @Published var meetingDetails: String { didSet { save(meetingDetails, "meetingDetails") } }
     @Published var engine: SpeechEngine { didSet { save(engine.rawValue, "engine") } }
     @Published var locale: String { didSet { save(locale, "locale") } }
-    @Published var whisperURL: String { didSet { save(whisperURL, "whisperURL") } }
-    @Published var whisperEmail: String { didSet { save(whisperEmail, "whisperEmail") } }
-    @Published var whisperPassword: String { didSet { if !preview { Secrets.write(whisperPassword, "whisperx") } } }
     @Published var opacity: Double { didSet { save(opacity, "opacity") } }
     @Published var fontSize: Double { didSet { save(fontSize, "fontSize") } }
     @Published var stayOnTop: Bool { didSet { save(stayOnTop, "stayOnTop") } }
@@ -59,12 +62,9 @@ final class AssistantPreferences: ObservableObject {
         // Последующий явный выбор другого движка сохраняется.
         let enableClips = AudioClipTranscriber.isSupported
             && (preview || defaults.object(forKey: "assistant.clipModeInitialized") as? Bool != true)
-        let chosenEngine: SpeechEngine = enableClips ? .clips : (SpeechEngine(rawValue: value("engine") as? String ?? "") ?? .apple)
-        engine = chosenEngine == .clips && !AudioClipTranscriber.isSupported ? .apple : chosenEngine
+        engine = SpeechEngine.restore(enableClips ? SpeechEngine.clips.rawValue : value("engine") as? String,
+                                      supportsClips: AudioClipTranscriber.isSupported)
         locale = value("locale") as? String ?? "ru-RU"
-        whisperURL = value("whisperURL") as? String ?? (preview ? nil : defaults.string(forKey: "whisperxURL")) ?? ""
-        whisperEmail = value("whisperEmail") as? String ?? (preview ? nil : defaults.string(forKey: "whisperxEmail")) ?? ""
-        whisperPassword = preview ? "" : Secrets.read("whisperx")
         opacity = min(1, max(0.35, value("opacity") as? Double ?? 0.84))
         fontSize = min(32, max(13, value("fontSize") as? Double ?? 19))
         stayOnTop = value("stayOnTop") as? Bool ?? true
@@ -74,9 +74,13 @@ final class AssistantPreferences: ObservableObject {
            code >= 0, code <= Int(UInt32.max), modifiers >= 0, modifiers <= Int(UInt32.max) {
             hotKey = KeyCombo(keyCode: UInt32(code), modifiers: UInt32(modifiers))
         } else { hotKey = .default }
-        if enableClips && !preview {
-            defaults.set(true, forKey: "assistant.clipModeInitialized")
-            defaults.set(SpeechEngine.clips.rawValue, forKey: "assistant.engine")
+        if !preview {
+            if enableClips { defaults.set(true, forKey: "assistant.clipModeInitialized") }
+            // Неизвестный или недоступный режим заменяем встроенным и
+            // сохраняем исправленный выбор для следующего запуска.
+            if defaults.string(forKey: "assistant.engine") != engine.rawValue {
+                defaults.set(engine.rawValue, forKey: "assistant.engine")
+            }
         }
     }
 
@@ -87,11 +91,6 @@ final class AssistantPreferences: ObservableObject {
         config.resume = resumeText
         guard config.isReady else { throw RecorderError.message("Подключите корпоративный прокси в настройках.") }
         return config
-    }
-
-    var whisperConfiguration: WhisperX.Config {
-        WhisperX.Config(baseURL: whisperURL, email: whisperEmail, password: whisperPassword,
-                        language: String(locale.prefix(2)))
     }
 
     private func save(_ value: Any, _ key: String) {

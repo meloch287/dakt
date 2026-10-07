@@ -277,10 +277,6 @@ struct AssistantView: View {
             HStack(spacing: 16) {
                 Button("Настройки", action: onSettings)
                 if assistant.error == nil, answers.error != nil { Button("Повторить", action: assistant.retry) }
-                if assistant.recovery == .dictation, preferences.whisperConfiguration.isComplete {
-                    Button("Использовать WhisperX", action: assistant.useWhisperX)
-                        .disabled(assistant.state != .idle)
-                }
             }
             .buttonStyle(.link)
             .font(.system(size: 11))

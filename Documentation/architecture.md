@@ -8,7 +8,7 @@ Dakt — одно нативное приложение macOS. Собствен�
 | --- | --- | --- |
 | [Sources/App](../Sources/App) | Запуск, меню у часов, окна и завершение | `AppDelegate`, `DaktRecorderApp` |
 | [Sources/Audio](../Sources/Audio) | Захват системного PCM, уровень звука, границы фраз | `SystemAudioListener`, `AudioTurnGate` |
-| [Sources/Transcription](../Sources/Transcription) | Распознавание и временные аудиофайлы | `RecordedSpeechStream`, `AudioClipTranscriber`, `AppleSpeechStream`, `WhisperSpeechStream` |
+| [Sources/Transcription](../Sources/Transcription) | Распознавание и временные аудиофайлы | `RecordedSpeechStream`, `AudioClipTranscriber`, `AppleSpeechStream` |
 | [Sources/Assistant](../Sources/Assistant) | Состояние сессии, фильтр вопросов, ответы и шаблон встречи | `AssistantController`, `QuestionGate`, `AnswerEngine`, `LunaService`, `MeetingContextController` |
 | [Sources/UI](../Sources/UI) | SwiftUI-представления и поведение нативных окон | `AssistantView`, `AssistantWindow`, `WindowInteractionLock` |
 | [Sources/Support](../Sources/Support) | Настройки, секреты, импорт документов и восстановление после ошибок | `AssistantPreferences`, `Secrets`, `CorporateProxyProfile`, `ResumeImporter` |
@@ -53,15 +53,14 @@ sequenceDiagram
 
 В быстром режиме `AudioTurnGate` закрывает фразу после **0,4 с тишины** либо после **12 с** непрерывного звука. Фрагменты короче **0,12 с** отбрасываются. До начала речи сохраняется примерно **0,25 с** предшествующего звука. Очередь ограничена текущим и последним ожидающим фрагментом.
 
-### Три движка распознавания
+### Встроенные движки распознавания
 
 | Движок | Требования | Где обрабатывается аудио |
 | --- | --- | --- |
 | `RecordedSpeechStream` + `AudioClipTranscriber` | macOS 26, установленная модель языка | На Mac: `SpeechAnalyzer` + `DictationTranscriber` |
 | `AppleSpeechStream` | Разрешение на распознавание и работающая диктовка | На устройстве, когда доступно; иначе у Apple |
-| `WhisperSpeechStream` | Совместимый сервер и его учётные данные | На настроенном сервере |
 
-WhisperX — адаптер конкретного HTTP-протокола: `/login`, `/api/transcribe`, `/api/status/{id}`, `/api/download/{id}/json`. Это не произвольный OpenAI-совместимый speech endpoint. Адрес задаётся пользователем; TLS проверяет macOS.
+При чтении устаревших настроек неизвестный движок заменяется быстрыми аудиофрагментами на macOS 26 или системной диктовкой на прежних версиях macOS. Явный выбор поддерживаемого режима сохраняется.
 
 ### Фильтр и модель
 
@@ -88,7 +87,6 @@ stateDiagram-v2
 - Передача PCM между очередями идёт через `AudioRelay` с блокировкой.
 - Поколения запросов в `AssistantController` и `AnswerEngine` отсекают опоздавшие callbacks.
 - Новый вопрос отменяет предыдущий ответ. Пауза отключает захват и отменяет текущую генерацию.
-- Сессия WhisperX переиспользует вход; отдельный actor управляет авторизацией.
 
 ## Окно и замок
 
@@ -104,7 +102,7 @@ stateDiagram-v2
 
 | Данные | Место | Срок / назначение |
 | --- | --- | --- |
-| Ручные API-ключи и пароль WhisperX | Keychain | До изменения пользователем |
+| Ручные API-ключи и токен прокси | Keychain | До изменения пользователем |
 | Настройки окна, резюме, шаблон встречи | UserDefaults | Между запусками |
 | История собеседника | Память | Последние 80 реплик, до очистки или выхода |
 | Предыдущие ответы | Память | До 20 ответов, до очистки или выхода |

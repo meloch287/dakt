@@ -24,7 +24,7 @@ final class AppleSpeechStream: @unchecked Sendable {
     init(locale: String, onDraft: @escaping (String) -> Void,
          onUtterance: @escaping (String) -> Void, onError: @escaping (SpeechFailure) -> Void) throws {
         guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: locale)), recognizer.isAvailable else {
-            throw RecorderError.message("Распознавание macOS недоступно. Включите диктовку или выберите WhisperX в настройках.")
+            throw RecorderError.message("Распознавание macOS недоступно. Включите диктовку и проверьте выбранный язык в настройках.")
         }
         self.recognizer = recognizer
         self.onDraft = onDraft

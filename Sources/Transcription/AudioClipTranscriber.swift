@@ -16,11 +16,11 @@ enum AudioClipTranscriber {
         #if compiler(>=6.2)
         if #available(macOS 26, *) {
             guard let locale = await DictationTranscriber.supportedLocale(equivalentTo: Locale(identifier: identifier)) else {
-                throw RecorderError.message("Этот язык недоступен для быстрых аудиофрагментов. Выберите другой язык или WhisperX.")
+                throw RecorderError.message("Этот язык недоступен для быстрых аудиофрагментов. Выберите другой язык или режим «Диктовка macOS».")
             }
             let installed = await DictationTranscriber.installedLocales
             guard installed.contains(where: { normalized($0.identifier) == normalized(locale.identifier) }) else {
-                throw RecorderError.message("Локальная модель языка \(identifier) ещё не установлена. Выберите WhisperX или установите этот язык в настройках диктовки macOS.")
+                throw RecorderError.message("Локальная модель языка \(identifier) ещё не установлена. Установите этот язык в настройках диктовки macOS.")
             }
             // Резервирование относится к приложению и повторно использует язык
             // между фрагментами; установленную модель не скачиваем заново.
@@ -39,7 +39,7 @@ enum AudioClipTranscriber {
             return
         }
         #endif
-        throw RecorderError.message("Быстрые аудиофрагменты требуют macOS 26. На этой системе выберите WhisperX.")
+        throw RecorderError.message("Быстрые аудиофрагменты требуют macOS 26. На этой системе выберите режим «Диктовка macOS».")
     }
 
     static func recognize(file: URL, locale identifier: String) async throws -> String {

@@ -20,7 +20,6 @@ body:
       options:
         - Аудиофрагменты · быстро
         - Диктовка macOS
-        - WhisperX
         - Не относится к распознаванию
   - type: textarea
     id: reproduce

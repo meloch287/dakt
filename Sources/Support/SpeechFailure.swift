@@ -42,8 +42,8 @@ struct SpeechFailure: LocalizedError {
     var isRetryable: Bool { !dictationDisabled }
     var errorDescription: String? {
         if dictationDisabled {
-            return "В macOS выключена диктовка. Включите её: Системные настройки → Клавиатура → Диктовка. Выданное приложению разрешение само по себе её не включает. Можно также выбрать WhisperX в настройках Dakt."
+            return "В macOS выключена диктовка. Включите её: Системные настройки → Клавиатура → Диктовка. Выданное приложению разрешение само по себе её не включает. На macOS 26 можно выбрать режим «Аудиофрагменты · быстро»."
         }
-        return "Распознавание прервалось. \(source.localizedDescription) (\(source.domain), \(source.code)). Повторите запуск или выберите WhisperX."
+        return "Распознавание прервалось. \(source.localizedDescription) (\(source.domain), \(source.code)). Повторите запуск и проверьте выбранный язык."
     }
 }

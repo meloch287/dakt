@@ -39,7 +39,6 @@ final class AssistantController: ObservableObject {
     private let relay = AudioBufferRelay()
     private var listener: SystemAudioListener?
     private var apple: AppleSpeechStream?
-    private var whisper: WhisperSpeechStream?
     private var recorded: RecordedSpeechStream?
     private var generation = UUID()
     private var starting: Task<Void, Never>?
@@ -76,7 +75,7 @@ final class AssistantController: ObservableObject {
             _ = try preferences.lunaConfiguration()
             if preferences.engine == .apple {
                 guard await AppleSpeechStream.authorize() else {
-                    error = "Разрешите распознавание речи в настройках macOS или выберите WhisperX."
+                    error = "Разрешите распознавание речи в настройках macOS."
                     recovery = .speechRecognition
                     await stop()
                     return
@@ -120,11 +119,6 @@ final class AssistantController: ObservableObject {
                 apple = stream
                 stream.start()
                 relay.route { stream.append($0) }
-            case .whisperx:
-                let stream = WhisperSpeechStream(config: preferences.whisperConfiguration, onDraft: draft, onUtterance: final, onError: failure)
-                whisper = stream
-                try stream.start()
-                relay.route { stream.append($0) }
             }
             let relay = self.relay
             let source = SystemAudioListener(onBuffer: { relay.feed($0) }, onLevel: { [weak self] level in
@@ -159,10 +153,8 @@ final class AssistantController: ObservableObject {
         state = .stopping
         relay.route(to: nil)
         apple?.stop()
-        whisper?.stop()
         recorded?.stop()
         apple = nil
-        whisper = nil
         recorded = nil
         answers.cancel()
         draft = ""
@@ -232,12 +224,6 @@ final class AssistantController: ObservableObject {
     func reportSpeechFailure(_ failure: SpeechFailure) {
         error = failure.localizedDescription
         recovery = failure.recovery
-    }
-
-    func useWhisperX() {
-        guard state == .idle, preferences.whisperConfiguration.isComplete else { return }
-        preferences.engine = .whisperx
-        toggle()
     }
 
     func loadExample() {

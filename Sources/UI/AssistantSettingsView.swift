@@ -49,13 +49,8 @@ struct AssistantSettingsView: View {
                     }
                     if preferences.engine == .clips {
                         detail("Записывает короткую фразу и сразу переводит её в текст на компьютере. Пауза — 0,4 с. Siri и системную диктовку включать не нужно. Временная запись удаляется после обработки. Требуется macOS 26 и установленная модель языка.")
-                    } else if preferences.engine == .apple {
-                        detail("Старый потоковый режим. Нужна включённая диктовка macOS. Если язык не поддерживает распознавание на устройстве, звук обрабатывается Apple.")
                     } else {
-                        TextField("Адрес WhisperX", text: $preferences.whisperURL).textFieldStyle(.roundedBorder)
-                        TextField("Почта", text: $preferences.whisperEmail).textFieldStyle(.roundedBorder)
-                        SecureField("Пароль WhisperX", text: $preferences.whisperPassword).textFieldStyle(.roundedBorder)
-                        detail("Запасной режим. Аудиофрагменты отправляются на WhisperX; ответ появляется позже, чем в потоковом режиме. Временные файлы удаляются после обработки.")
+                        detail("Старый потоковый режим. Нужна включённая диктовка macOS. Если язык не поддерживает распознавание на устройстве, звук обрабатывается Apple.")
                     }
                     if assistant.state != .idle {
                         detail("Чтобы изменить распознавание, поставьте прослушивание на паузу.")
