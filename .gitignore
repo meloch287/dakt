@@ -1,0 +1,25 @@
+.DS_Store
+DaktRecorder.app/
+Dakt.app/
+/build/
+/.build/
+/dist/
+*.xcodeproj
+
+# Local credentials, personal context, and release products.
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.pem
+*.key
+*.mobileprovision
+*.dmg
+*.dSYM/
+/private/
+/local/
+/docs/
+/artifacts/
+__pycache__/
+.venv/
