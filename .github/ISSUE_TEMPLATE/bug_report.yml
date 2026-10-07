@@ -1,0 +1,36 @@
+name: Ошибка
+description: Сообщить о проблеме в Dakt
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Не прикладывайте токены, резюме или записи разговоров. Для примеров используйте вымышленные данные.
+  - type: input
+    id: version
+    attributes:
+      label: Версия Dakt и macOS
+      placeholder: Dakt 2.4.0, macOS 26, Apple Silicon
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Движок распознавания
+      options:
+        - Аудиофрагменты · быстро
+        - Диктовка macOS
+        - WhisperX
+        - Не относится к распознаванию
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Как воспроизвести
+      description: Шаги, ожидаемое поведение и фактический результат.
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Дополнительные сведения
+      description: Текст ошибки или обезличенный скриншот.

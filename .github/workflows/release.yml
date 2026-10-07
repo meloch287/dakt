@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, matching Info.plist
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Universal macOS DMG
+    runs-on: macos-26
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+      - name: Check version
+        run: |
+          version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Info.plist)"
+          test "$RELEASE_TAG" = "v$version"
+      - name: Tests
+        run: swift test
+      - name: Universal app
+        run: ./build.sh --universal --out dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Package DMG
+        run: ./Tools/package-dmg.sh dist/Dakt.app dist
+      - name: Publish without replacing existing assets
+        run: |
+          if gh release view "$RELEASE_TAG" --json assets > .build/release.json 2>/dev/null; then
+            for asset in dist/*.dmg dist/*.dmg.sha256; do
+              if python3 -c 'import json,pathlib,sys; names={a["name"] for a in json.load(open(".build/release.json"))["assets"]}; raise SystemExit(pathlib.Path(sys.argv[1]).name not in names)' "$asset"; then
+                echo "Existing asset preserved: $asset"
+              else
+                gh release upload "$RELEASE_TAG" "$asset"
+              fi
+            done
+          elif [ -f "Documentation/releases/$RELEASE_TAG.md" ]; then
+            gh release create "$RELEASE_TAG" dist/*.dmg dist/*.dmg.sha256 --verify-tag \
+              --title "Dakt ${RELEASE_TAG#v}" --notes-file "Documentation/releases/$RELEASE_TAG.md"
+          else
+            gh release create "$RELEASE_TAG" dist/*.dmg dist/*.dmg.sha256 --verify-tag \
+              --title "Dakt ${RELEASE_TAG#v}" --generate-notes
+          fi

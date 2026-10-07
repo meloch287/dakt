@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests and macOS bundle
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: swift --version
+      - name: Tests
+        run: swift test
+      - name: Build app
+        run: ./build.sh --out dist
+      - name: Verify signature and archive
+        run: |
+          codesign --verify --deep --strict dist/Dakt.app
+          ditto -c -k --sequesterRsrc --keepParent dist/Dakt.app dist/Dakt-preview.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dakt-preview-${{ github.sha }}
+          path: dist/Dakt-preview.zip
+          retention-days: 7
