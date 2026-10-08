@@ -35,6 +35,7 @@ final class AssistantPreferences: ObservableObject {
     @Published var meetingDetails: String { didSet { save(meetingDetails, "meetingDetails") } }
     @Published var engine: SpeechEngine { didSet { save(engine.rawValue, "engine") } }
     @Published var locale: String { didSet { save(locale, "locale") } }
+    @Published var questionPause: TimeInterval { didSet { save(questionPause, "questionPause") } }
     @Published var opacity: Double { didSet { save(opacity, "opacity") } }
     @Published var fontSize: Double { didSet { save(fontSize, "fontSize") } }
     @Published var stayOnTop: Bool { didSet { save(stayOnTop, "stayOnTop") } }
@@ -65,6 +66,7 @@ final class AssistantPreferences: ObservableObject {
         engine = SpeechEngine.restore(enableClips ? SpeechEngine.clips.rawValue : value("engine") as? String,
                                       supportsClips: AudioClipTranscriber.isSupported)
         locale = value("locale") as? String ?? "ru-RU"
+        questionPause = SpeechTiming.normalized(value("questionPause") as? Double ?? SpeechTiming.defaultPause)
         opacity = min(1, max(0.35, value("opacity") as? Double ?? 0.84))
         fontSize = min(32, max(13, value("fontSize") as? Double ?? 19))
         stayOnTop = value("stayOnTop") as? Bool ?? true

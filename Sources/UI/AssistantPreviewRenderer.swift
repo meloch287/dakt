@@ -24,6 +24,12 @@ enum AssistantPreviewRenderer {
         try await Task.sleep(nanoseconds: 250_000_000)
         try await verifyLockCycle(panel: panel, preferences: preferences, interaction: interactionLock,
                                   folder: folder, name: "reopen", viaReopen: true)
+        assistant.answers.showExample(queued: 2)
+        try await Task.sleep(nanoseconds: 250_000_000)
+        try snapshot(panel.contentView!, to: folder.appendingPathComponent("answer-queue.png"))
+        assistant.answers.showExample(waitingForNext: true)
+        try await Task.sleep(nanoseconds: 250_000_000)
+        try snapshot(panel.contentView!, to: folder.appendingPathComponent("complete-answer-while-waiting.png"))
         await assistant.stop()
         assistant.clear()
         panel.setContentSize(NSSize(width: 500, height: 420))
@@ -41,6 +47,16 @@ enum AssistantPreviewRenderer {
         window.orderFront(nil)
         try await Task.sleep(nanoseconds: 250_000_000)
         try snapshot(settings, to: folder.appendingPathComponent("settings.png"))
+        if let scroll = firstScrollView(in: settings), let document = scroll.documentView {
+            document.scroll(NSPoint(x: 0, y: 700))
+            try await Task.sleep(nanoseconds: 250_000_000)
+            try snapshot(settings, to: folder.appendingPathComponent("question-pause.png"))
+            window.setContentSize(NSSize(width: 380, height: 820))
+            try await Task.sleep(nanoseconds: 250_000_000)
+            try snapshot(settings, to: folder.appendingPathComponent("question-pause-narrow.png"))
+            window.setContentSize(NSSize(width: 480, height: 820))
+            document.scroll(.zero)
+        }
         // Только вымышленные данные: реальные резюме в снимки не попадают.
         preferences.resumeName = "Пример резюме — Python Backend.pdf"
         preferences.resumeText = "Алексей — Python backend-разработчик. FastAPI, PostgreSQL, Redis. Разрабатывал сервис обработки заявок и фоновые задачи."
@@ -74,6 +90,14 @@ enum AssistantPreviewRenderer {
         print("Hide button: native mouse event passed")
         print("Native previews: \(folder.path)")
         print("Window: resizable=\(panel.styleMask.contains(.resizable)), opaque=\(panel.isOpaque), minimum=\(panel.contentMinSize)")
+    }
+
+    private static func firstScrollView(in view: NSView) -> NSScrollView? {
+        if let scroll = view as? NSScrollView { return scroll }
+        for child in view.subviews {
+            if let scroll = firstScrollView(in: child) { return scroll }
+        }
+        return nil
     }
 
     private static func verifyLockCycle(panel: AssistantWindow, preferences: AssistantPreferences,

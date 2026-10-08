@@ -24,7 +24,7 @@ final class LunaServiceTests: XCTestCase {
     func testRegularResponsesAPIHasBoundedOutput() {
         let config = LunaConfiguration(endpoint: "https://proxy.example/v1/responses", apiKey: "test")
         let body = LunaService.body(question: "q", recent: [], config: config)
-        XCTAssertEqual(body["max_output_tokens"] as? Int, 400)
+        XCTAssertEqual(body["max_output_tokens"] as? Int, 600)
     }
 
     func testInvalidEndpointAndMissingCredentialsAreRejected() {

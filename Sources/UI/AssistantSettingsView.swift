@@ -48,10 +48,20 @@ struct AssistantSettingsView: View {
                         Text("Français").tag("fr-FR")
                     }
                     if preferences.engine == .clips {
-                        detail("Записывает короткую фразу и сразу переводит её в текст на компьютере. Пауза — 0,4 с. Siri и системную диктовку включать не нужно. Временная запись удаляется после обработки. Требуется macOS 26 и установленная модель языка.")
+                        detail("Распознаёт звук на компьютере и собирает длинный вопрос целиком. Siri и системную диктовку включать не нужно. Временная запись удаляется после обработки. Требуется macOS 26 и установленная модель языка.")
                     } else {
                         detail("Старый потоковый режим. Нужна включённая диктовка macOS. Если язык не поддерживает распознавание на устройстве, звук обрабатывается Apple.")
                     }
+                    HStack {
+                        Text("Пауза в конце вопроса")
+                        Spacer()
+                        Text(String(format: "%.1f с", preferences.questionPause)).monospacedDigit()
+                            .foregroundStyle(AssistantTheme.secondary)
+                    }
+                    Slider(value: $preferences.questionPause, in: SpeechTiming.pauseRange, step: 0.1)
+                        .accessibilityLabel("Пауза в конце вопроса")
+                        .accessibilityValue(String(format: "%.1f секунды", preferences.questionPause))
+                    detail("По умолчанию 1,2 с: пауза около секунды не разделяет вопрос. Увеличьте значение, если собеседник часто останавливается посреди фразы. Меньшее значение ускоряет начало ответа. Следующий вопрос ждёт завершения текущего ответа.")
                     if assistant.state != .idle {
                         detail("Чтобы изменить распознавание, поставьте прослушивание на паузу.")
                     }

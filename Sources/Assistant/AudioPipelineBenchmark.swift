@@ -22,7 +22,7 @@ enum AudioPipelineBenchmark {
                 "first_answer_s": first.seconds ?? 0,
                 "total_s": Date().timeIntervalSince(start),
                 "transcript": text, "answer": answer,
-                "note": "После завершения записи; пауза определения конца фразы 0.4 с сюда не входит."
+                "note": "После завершения записи; настраиваемая пауза определения конца вопроса сюда не входит."
             ]
             let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
             print(String(decoding: data, as: UTF8.self))

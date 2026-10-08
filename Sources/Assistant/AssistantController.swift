@@ -103,13 +103,15 @@ final class AssistantController: ObservableObject {
             }
             switch preferences.engine {
             case .clips:
-                let stream = RecordedSpeechStream(locale: preferences.locale, onDraft: draft, onUtterance: final, onError: failure)
+                let stream = RecordedSpeechStream(locale: preferences.locale, pause: preferences.questionPause,
+                                                  onDraft: draft, onUtterance: final, onError: failure)
                 recorded = stream
                 try await stream.start()
                 guard generation == ticket, !Task.isCancelled else { stream.stop(); return }
                 relay.route { stream.append($0) }
             case .apple:
-                let stream = try AppleSpeechStream(locale: preferences.locale, onDraft: draft, onUtterance: final) { [weak self] issue in
+                let stream = try AppleSpeechStream(locale: preferences.locale, pause: preferences.questionPause,
+                                                   onDraft: draft, onUtterance: final) { [weak self] issue in
                     Task { @MainActor in
                         guard let self, self.generation == ticket else { return }
                         self.reportSpeechFailure(issue)
@@ -187,20 +189,24 @@ final class AssistantController: ObservableObject {
     func answerLatest() {
         guard let text = draft.isEmpty ? transcript.last?.text : draft else { return }
         let recent = draft.isEmpty ? Array(transcript.dropLast()) : transcript
-        ask(text, recent: recent.map(\.text))
+        ask(text, recent: recent.map(\.text), interrupt: true)
     }
 
     func retry() {
-        guard let question = answers.reply?.question else { return }
-        ask(question, recent: Array(transcript.dropLast()).map(\.text))
-    }
-
-    private func ask(_ text: String, recent: [String]) {
         guard !preview else { return }
         do {
             let config = try preferences.lunaConfiguration()
             error = nil
-            answers.ask(text, recent: recent, config: config)
+            answers.retry(config: config)
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func ask(_ text: String, recent: [String], interrupt: Bool = false) {
+        guard !preview else { return }
+        do {
+            let config = try preferences.lunaConfiguration()
+            error = nil
+            answers.ask(text, recent: recent, config: config, interrupt: interrupt)
         } catch { self.error = error.localizedDescription }
     }
 

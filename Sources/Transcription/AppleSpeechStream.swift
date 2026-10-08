@@ -1,11 +1,12 @@
 import AVFoundation
 import Speech
 
-/// Один поток, одна сторона разговора. Вопрос фиксируется после 600 мс
-/// тишины, не дожидаясь минутного лимита системного распознавателя.
+/// Перезапуск системного распознавателя не завершает вопрос: его части
+/// сохраняются до выбранной пользователем паузы в речи.
 final class AppleSpeechStream: @unchecked Sendable {
     private let queue = DispatchQueue(label: "dakt.speech.apple", qos: .userInitiated)
     private let recognizer: SFSpeechRecognizer
+    private let pause: TimeInterval
     private let onDraft: (String) -> Void
     private let onUtterance: (String) -> Void
     private let onError: (SpeechFailure) -> Void
@@ -20,13 +21,15 @@ final class AppleSpeechStream: @unchecked Sendable {
     private var taskStarted = Date()
     private var lastText = ""
     private var buffer = UtteranceBuffer()
+    private var turn = SpeechTurnBuffer()
 
-    init(locale: String, onDraft: @escaping (String) -> Void,
+    init(locale: String, pause: TimeInterval = SpeechTiming.defaultPause, onDraft: @escaping (String) -> Void,
          onUtterance: @escaping (String) -> Void, onError: @escaping (SpeechFailure) -> Void) throws {
         guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: locale)), recognizer.isAvailable else {
             throw RecorderError.message("Распознавание macOS недоступно. Включите диктовку и проверьте выбранный язык в настройках.")
         }
         self.recognizer = recognizer
+        self.pause = SpeechTiming.normalized(pause)
         self.onDraft = onDraft
         self.onUtterance = onUtterance
         self.onError = onError
@@ -70,6 +73,7 @@ final class AppleSpeechStream: @unchecked Sendable {
             request = nil
             task = nil
             buffer.reset()
+            turn.reset()
         }
     }
 
@@ -95,16 +99,16 @@ final class AppleSpeechStream: @unchecked Sendable {
                     self.errors = 0
                     self.lastText = result.bestTranscription.formattedString
                     self.lastTextAt = Date()
-                    self.onDraft(self.buffer.update(self.lastText))
+                    self.onDraft(self.turn.preview(appending: self.buffer.update(self.lastText)))
                     if result.isFinal {
-                        self.commit()
+                        self.captureSegment()
                         self.beginTask()
                         return
                     }
                 }
                 if let error {
                     let failure = SpeechFailure(error)
-                    self.commit()
+                    self.captureSegment()
                     self.errors += 1
                     self.generation += 1
                     self.task?.cancel()
@@ -125,15 +129,21 @@ final class AppleSpeechStream: @unchecked Sendable {
         let now = Date()
         // Короткий запас после уточнения текста даёт распознавателю дописать
         // последнее слово, но не добавляет прежнюю задержку в несколько секунд.
-        if now.timeIntervalSince(lastVoice) >= 0.6 && now.timeIntervalSince(lastTextAt) >= 0.2 { commit() }
+        if now.timeIntervalSince(lastVoice) >= pause && now.timeIntervalSince(lastTextAt) >= 0.2 { finishTurn() }
         if now.timeIntervalSince(taskStarted) >= 45 {
-            commit()
+            captureSegment()
             beginTask()
         }
     }
 
-    private func commit() {
+    private func captureSegment() {
         guard let text = buffer.commit(lastText) else { return }
+        _ = turn.append(text, endsTurn: false)
+    }
+
+    private func finishTurn() {
+        captureSegment()
+        guard let text = turn.append("", endsTurn: true) else { return }
         onDraft("")
         onUtterance(text)
     }

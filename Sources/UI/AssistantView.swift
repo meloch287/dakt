@@ -20,7 +20,13 @@ struct AssistantView: View {
     @State private var copied = false
     @State private var previous: AnswerEngine.Reply?
 
-    private var displayed: AnswerEngine.Reply? { previous ?? answers.reply }
+    private var waitingForNextAnswer: Bool {
+        previous == nil && answers.reply?.isStreaming == true
+            && answers.reply?.text.isEmpty == true && !answers.history.isEmpty
+    }
+    private var displayed: AnswerEngine.Reply? {
+        previous ?? (waitingForNextAnswer ? answers.history.first : answers.reply)
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -134,7 +140,7 @@ struct AssistantView: View {
     private func answer(_ reply: AnswerEngine.Reply, compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 20) {
             VStack(alignment: .leading, spacing: compact ? 4 : 8) {
-                if !compact { eyebrow(previous == nil ? "ВОПРОС СОБЕСЕДНИКА" : "ПРЕДЫДУЩИЙ ВОПРОС") }
+                if !compact { eyebrow(previous == nil && !waitingForNextAnswer ? "ВОПРОС СОБЕСЕДНИКА" : "ПРЕДЫДУЩИЙ ВОПРОС") }
                 Text(reply.question)
                     .font(.system(size: compact ? 12 : max(13, preferences.fontSize - 4)))
                     .foregroundStyle(AssistantTheme.secondary)
@@ -164,6 +170,12 @@ struct AssistantView: View {
                         }
                     }
                 }
+                if previous == nil, answers.pendingCount > 0 {
+                    Label(answers.error == nil ? "В очереди: \(answers.pendingCount)" : "Ожидают повтора: \(answers.pendingCount)",
+                          systemImage: "text.bubble")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AssistantTheme.secondary)
+                }
                 if reply.text.isEmpty && reply.isStreaming {
                     HStack(spacing: 10) {
                         ProgressView().controlSize(.small)
@@ -184,6 +196,17 @@ struct AssistantView: View {
                             .accessibilityLabel("Ответ продолжается")
                     }
                 }
+            }
+            if waitingForNextAnswer {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Готовлю следующий ответ…")
+                    }
+                    if let question = answers.reply?.question { Text(question).lineLimit(2) }
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(AssistantTheme.secondary)
             }
             if previous != nil {
                 Button("К текущему ответу") { previous = nil }
@@ -226,12 +249,13 @@ struct AssistantView: View {
                 Spacer()
                 if assistant.canAnswerLatest {
                     Button(action: assistant.answerLatest) {
-                        Label("Ответить", systemImage: "arrow.turn.down.right")
+                        Label(answers.reply?.isStreaming == true || answers.pendingCount > 0 ? "Ответить сейчас" : "Ответить",
+                              systemImage: "arrow.turn.down.right")
                             .font(.system(size: 10, weight: .medium))
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(AssistantTheme.accent)
-                    .help("Ответить на последнюю реплику, даже если вопрос не распознан автоматически")
+                    .help("Сразу ответить на последнюю реплику. Текущий ответ и очередь будут отменены.")
                 }
             }
             Text(assistant.draft.isEmpty
