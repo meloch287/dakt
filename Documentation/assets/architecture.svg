@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="742" viewBox="0 0 560 742" role="img" aria-labelledby="title description">
+  <title id="title">Архитектура Dakt: от системного звука до ответа</title>
+  <desc id="description">Dakt захватывает системный звук без микрофона, распознаёт аудиофрагменты на Mac и собирает целый вопрос. Фильтр и очередь передают вопрос вместе с резюме и контекстом в GPT-6 Luna через Responses API. Потоковый ответ появляется в окне SwiftUI и AppKit.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 1 1 L 6 4 L 1 7" fill="none" stroke="#91ebc4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect x="1" y="1" width="558" height="740" rx="22" fill="#11181a" stroke="#354343"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="32" y="44" fill="#91ebc4" font-size="13" font-weight="600" letter-spacing="1.5">DAKT / АРХИТЕКТУРА</text>
+    <text x="32" y="80" fill="#eff5f2" font-size="26" font-weight="600">От звука до ответа</text>
+
+    <rect x="32" y="110" width="496" height="108" rx="14" fill="#1b2527" stroke="#354343"/>
+    <text x="52" y="143" fill="#91ebc4" font-size="13" font-weight="600">01 / ЗАХВАТ НА MAC</text>
+    <text x="52" y="175" fill="#eff5f2" font-size="23" font-weight="600">Системный звук</text>
+    <text x="52" y="200" fill="#b5c3c2" font-size="17">ScreenCaptureKit · без микрофона</text>
+
+    <path d="M 280 224 V 248" fill="none" stroke="#91ebc4" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="32" y="258" width="496" height="132" rx="14" fill="#1b2527" stroke="#354343"/>
+    <text x="52" y="291" fill="#91ebc4" font-size="13" font-weight="600">02 / РАСПОЗНАВАНИЕ НА MAC</text>
+    <text x="52" y="323" fill="#eff5f2" font-size="23" font-weight="600">Аудиофрагменты → целый вопрос</text>
+    <text x="52" y="350" fill="#b5c3c2" font-size="17">SpeechAnalyzer · пауза 1,2 с по умолчанию</text>
+    <text x="52" y="375" fill="#b5c3c2" font-size="17">Фильтр вопросов → очередь ответов</text>
+
+    <path d="M 280 396 V 420" fill="none" stroke="#91ebc4" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="32" y="430" width="496" height="132" rx="14" fill="#20362f" stroke="#639d85"/>
+    <text x="52" y="463" fill="#91ebc4" font-size="13" font-weight="600">03 / ВАШ API ИЛИ КОРПОРАТИВНЫЙ ПРОКСИ</text>
+    <text x="52" y="495" fill="#eff5f2" font-size="23" font-weight="600">GPT‑6 Luna</text>
+    <text x="52" y="522" fill="#cfddd5" font-size="17">Вопрос + резюме + контекст встречи</text>
+    <text x="52" y="547" fill="#cfddd5" font-size="17">Responses · без рассуждений · поток SSE</text>
+
+    <path d="M 280 568 V 592" fill="none" stroke="#91ebc4" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="32" y="602" width="496" height="108" rx="14" fill="#1b2527" stroke="#354343"/>
+    <text x="52" y="635" fill="#91ebc4" font-size="13" font-weight="600">04 / ОКНО НА MAC</text>
+    <text x="52" y="667" fill="#eff5f2" font-size="23" font-weight="600">Ответ появляется по мере готовности</text>
+    <text x="52" y="692" fill="#b5c3c2" font-size="17">Полупрозрачное окно · SwiftUI + AppKit</text>
+  </g>
+</svg>
