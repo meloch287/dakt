@@ -25,6 +25,7 @@ final class RecordedSpeechStream: @unchecked Sendable {
     private var preRoll: [AVAudioPCMBuffer] = []
     private var preRollDuration: TimeInterval = 0
     private var timer: DispatchSourceTimer?
+    private var timerDeadline: TimeInterval?
     private var running = false
     private var generation = UUID()
     private var processing: Task<Void, Never>?
@@ -54,10 +55,12 @@ final class RecordedSpeechStream: @unchecked Sendable {
         queue.sync {
             running = true
             let timer = DispatchSource.makeTimerSource(queue: queue)
-            timer.schedule(deadline: .now() + 0.05, repeating: 0.05)
+            timer.schedule(deadline: .distantFuture)
             timer.setEventHandler { [weak self] in
                 guard let self else { return }
+                self.timerDeadline = nil
                 self.finishIfDue(at: self.now())
+                self.scheduleBoundary()
             }
             self.timer = timer
             timer.resume()
@@ -92,6 +95,7 @@ final class RecordedSpeechStream: @unchecked Sendable {
                     }
                 }
                 self.finishIfDue(at: timestamp)
+                self.scheduleBoundary()
             } catch { self.fail("Не удалось подготовить аудиофрагмент: \(error.localizedDescription)") }
         }
     }
@@ -109,6 +113,7 @@ final class RecordedSpeechStream: @unchecked Sendable {
             generation = UUID()
             timer?.cancel()
             timer = nil
+            timerDeadline = nil
             writer = nil
             preRoll = []
             preRollDuration = 0
@@ -136,6 +141,21 @@ final class RecordedSpeechStream: @unchecked Sendable {
             if let file { try? FileManager.default.removeItem(at: file) }
             if boundary.endsTurn { enqueue(Part(file: nil, endsTurn: true)) }
         }
+    }
+
+    /// Нет периодического опроса в тишине. Пока речь сдвигает границу вперёд,
+    /// оставляем ранний таймер: он один раз проверит новую дату и уснёт снова.
+    /// Это также завершает вопрос, если захват перестал присылать буферы тишины.
+    private func scheduleBoundary() {
+        guard running, let timer else { return }
+        guard let deadline = gate.nextDeadline else {
+            if timerDeadline != nil { timer.schedule(deadline: .distantFuture) }
+            timerDeadline = nil
+            return
+        }
+        if let scheduled = timerDeadline, scheduled <= deadline { return }
+        timerDeadline = deadline
+        timer.schedule(deadline: .now() + max(0, deadline - now()), leeway: .milliseconds(10))
     }
 
     private func enqueue(_ part: Part) {
@@ -195,6 +215,7 @@ final class RecordedSpeechStream: @unchecked Sendable {
         generation = UUID()
         timer?.cancel()
         timer = nil
+        timerDeadline = nil
         writer = nil
         processing?.cancel()
         for part in pending {

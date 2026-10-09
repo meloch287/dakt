@@ -14,6 +14,7 @@ final class MeetingContextController: ObservableObject {
     private let request: Request
     private var task: Task<Void, Never>?
     private var generation = UUID()
+    private var delivery: StreamingTextDelivery?
 
     init(preferences: AssistantPreferences, request: @escaping Request = { details, config, partial in
         try await LunaService.answer(question: details, recent: [], config: config,
@@ -83,16 +84,18 @@ final class MeetingContextController: ObservableObject {
         let details = preferences.meetingDetails
         let originalContext = preferences.context
         isGenerating = true
+        let delivery = StreamingTextDelivery { [weak self] partial in
+            guard let self, self.generation == token, self.isGenerating else { return }
+            self.draft = partial
+        }
+        self.delivery = delivery
         task = Task { [weak self] in
             guard let self else { return }
             do {
-                let text = try await self.request(details, config) { [weak self] partial in
-                    Task { @MainActor in
-                        guard let self, self.generation == token, self.isGenerating else { return }
-                        self.draft = partial
-                    }
-                }
+                let text = try await self.request(details, config) { delivery.submit($0) }
                 guard !Task.isCancelled, self.generation == token else { return }
+                delivery.cancel()
+                self.delivery = nil
                 self.isGenerating = false
                 guard self.preferences.resumeText == originalResume, self.preferences.meetingDetails == details else {
                     self.draft = ""
@@ -112,6 +115,8 @@ final class MeetingContextController: ObservableObject {
                 }
             } catch {
                 guard !Task.isCancelled, self.generation == token else { return }
+                delivery.finish()
+                self.delivery = nil
                 self.isGenerating = false
                 self.error = "Шаблон не подготовлен: \(error.localizedDescription)"
             }
@@ -137,6 +142,8 @@ final class MeetingContextController: ObservableObject {
 
     func cancel() {
         generation = UUID()
+        delivery?.cancel()
+        delivery = nil
         task?.cancel()
         task = nil
         if isBusy { status = "Подготовка остановлена." }

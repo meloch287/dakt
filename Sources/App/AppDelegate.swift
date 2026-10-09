@@ -45,7 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             preferences.$hotKey.removeDuplicates().dropFirst().receive(on: RunLoop.main)
                 .sink { [weak self] _ in self?.registerShortcut() }.store(in: &subscriptions)
         }
-        preferences.objectWillChange.receive(on: RunLoop.main)
+        preferences.$stayOnTop.combineLatest(preferences.$privateMode, preferences.$windowLocked)
+            .removeDuplicates { $0 == $1 }.dropFirst().receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.applyWindowPreferences() }.store(in: &subscriptions)
         assistant.$state.receive(on: RunLoop.main).sink { [weak self] state in
             self?.listenItem?.title = state == .idle ? "Слушать системный звук" : "Пауза"
@@ -114,6 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             panel.makeKeyAndOrderFront(nil)
         }
         interactionLock.synchronize()
+        updateMeterVisibility()
     }
 
     @objc private func restoreWindow() {
@@ -125,7 +127,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func hideWindow() {
+        assistant.activity.setVisible(false)
         for window in NSApp.windows { window.orderOut(nil) }
+    }
+
+    func windowDidChangeOcclusionState(_ notification: Notification) { updateMeterVisibility() }
+
+    private func updateMeterVisibility() {
+        assistant.activity.setVisible(panel.isVisible && panel.occlusionState.contains(.visible))
     }
 
     @objc private func toggleListening() { assistant.toggle() }

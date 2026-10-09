@@ -3,6 +3,31 @@ import XCTest
 @testable import DaktRecorder
 
 final class RecordedSpeechStreamTests: XCTestCase {
+    func testSilenceWithoutAudioDoesNotPollTheClock() async throws {
+        let calls = SpeechClockCalls()
+        let stream = RecordedSpeechStream(locale: "ru-RU", prepare: { _ in }, transcribe: { _, _ in "" },
+            now: { calls.read() }, onDraft: { _ in }, onUtterance: { _ in }, onError: { XCTFail($0) })
+        try await stream.start()
+        defer { stream.stop() }
+        try await Task.sleep(nanoseconds: 320_000_000)
+        XCTAssertEqual(calls.count, 0, "Idle listening must not wake a polling timer")
+    }
+
+    func testTurnFinishesWhenCaptureStopsDeliveringSilenceBuffers() async throws {
+        let finished = expectation(description: "deadline finishes speech without another audio callback")
+        let stream = RecordedSpeechStream(locale: "ru-RU", pause: 0.4, prepare: { _ in },
+            transcribe: { _, _ in "Полный вопрос?" }, onDraft: { _ in },
+            onUtterance: { XCTAssertEqual($0, "Полный вопрос?"); finished.fulfill() }, onError: { XCTFail($0) })
+        try await stream.start()
+        defer { stream.stop() }
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1))
+        let audio = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 3_200))
+        audio.frameLength = 3_200
+        audio.floatChannelData![0].update(repeating: 0.1, count: 3_200)
+        stream.append(audio)
+        await fulfillment(of: [finished], timeout: 2)
+    }
+
     @MainActor
     func testStalledRecognitionReportsOverloadInsteadOfSilentlyDroppingAudio() async throws {
         let clock = SpeechTestClock()
@@ -156,6 +181,16 @@ final class RecordedSpeechStreamTests: XCTestCase {
             stream.append(buffer)
             await stream.flushAudio()
         }
+    }
+}
+
+private final class SpeechClockCalls: @unchecked Sendable {
+    private let lock = NSLock()
+    private var reads = 0
+    var count: Int { lock.withLock { reads } }
+    func read() -> TimeInterval {
+        lock.withLock { reads += 1 }
+        return ProcessInfo.processInfo.systemUptime
     }
 }
 

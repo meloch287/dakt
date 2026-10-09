@@ -1,7 +1,46 @@
 import XCTest
+import Combine
 @testable import DaktRecorder
 
 final class AnswerEngineTests: XCTestCase {
+    @MainActor
+    func testBurstOfFragmentsCoalescesWithoutLosingLatestOrFinalText() async throws {
+        let sent = expectation(description: "burst sent")
+        var release: CheckedContinuation<String, Never>?
+        let engine = AnswerEngine { _, _, _, partial in
+            for index in 0..<300 { partial("Часть \(index)") }
+            return await withCheckedContinuation { release = $0; sent.fulfill() }
+        }
+        var publications = 0
+        let observation = engine.$reply.sink { _ in publications += 1 }
+        engine.ask("Вопрос?", recent: [], config: LunaConfiguration())
+        await fulfillment(of: [sent], timeout: 2)
+        try await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertEqual(engine.reply?.text, "Часть 299", "The last fragment must appear even if the network goes quiet")
+        XCTAssertLessThanOrEqual(publications, 6, "A token burst must not cause hundreds of SwiftUI updates")
+        XCTAssertNotNil(engine.reply?.latency)
+        release?.resume(returning: "Полный ответ.")
+        for _ in 0..<30 { await Task.yield() }
+        XCTAssertEqual(engine.reply?.text, "Полный ответ.")
+        XCTAssertEqual(engine.reply?.isStreaming, false)
+        withExtendedLifetime(observation) {}
+    }
+
+    @MainActor
+    func testFailureKeepsTheMostRecentFragmentEvenBeforeItsUIUpdate() async {
+        let failed = expectation(description: "error shown")
+        let engine = AnswerEngine { _, _, _, partial in
+            partial("Полученная часть ответа")
+            throw RecorderError.message("Обрыв соединения")
+        }
+        let observation = engine.$error.compactMap { $0 }.sink { _ in failed.fulfill() }
+        engine.ask("Вопрос?", recent: [], config: LunaConfiguration())
+        await fulfillment(of: [failed], timeout: 2)
+        XCTAssertEqual(engine.reply?.text, "Полученная часть ответа")
+        XCTAssertEqual(engine.reply?.isStreaming, false)
+        withExtendedLifetime(observation) {}
+    }
+
     @MainActor
     func testStopClearsQueuedQuestionsAndIgnoresLateCompletion() async {
         let first = expectation(description: "first")

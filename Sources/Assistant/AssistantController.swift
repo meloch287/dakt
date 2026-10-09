@@ -4,7 +4,28 @@ import ScreenCaptureKit
 
 @MainActor
 final class AudioActivity: ObservableObject {
-    @Published var level: Float = 0
+    @Published private var displayedLevel: Float = 0
+    private var latestLevel: Float = 0
+    private var visible = true
+
+    var level: Float {
+        get { displayedLevel }
+        set {
+            // Шаг меньше половины точки высоты индикатора. Незаметные
+            // колебания и повторная тишина не требуют обновления SwiftUI.
+            latestLevel = (min(1, max(0, newValue)) * 100).rounded() / 100
+            publishIfNeeded()
+        }
+    }
+
+    func setVisible(_ value: Bool) {
+        visible = value
+        publishIfNeeded()
+    }
+
+    private func publishIfNeeded() {
+        if visible, displayedLevel != latestLevel { displayedLevel = latestLevel }
+    }
 }
 
 @MainActor

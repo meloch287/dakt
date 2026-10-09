@@ -14,6 +14,10 @@ struct AudioTurnGate {
     private var hasUsefulSegment = false
     var isRecording: Bool { opened != nil }
     var hasOpenTurn: Bool { lastVoice != nil }
+    var nextDeadline: TimeInterval? {
+        guard let lastVoice else { return nil }
+        return min(lastVoice + silence, opened.map { $0 + Self.maximumClipDuration } ?? .infinity)
+    }
 
     init(silence: TimeInterval = SpeechTiming.defaultPause) {
         self.silence = SpeechTiming.normalized(silence)

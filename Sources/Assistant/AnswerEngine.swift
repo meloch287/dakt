@@ -25,6 +25,7 @@ final class AnswerEngine: ObservableObject {
     private var generation = UUID()
     private var pending: [Job] = []
     private var currentJob: Job?
+    private var delivery: StreamingTextDelivery?
 
     init(request: @escaping Request = { question, recent, config, partial in
         try await LunaService.answer(question: question, recent: recent, config: config, onPartial: partial)
@@ -71,24 +72,28 @@ final class AnswerEngine: ObservableObject {
         reply = Reply(id: id, question: job.question, text: "", isStreaming: true)
         error = nil
         let started = Date()
+        let delivery = StreamingTextDelivery { [weak self] partial in
+            guard let self, self.generation == id, var reply = self.reply, reply.isStreaming else { return }
+            reply.text = partial
+            if reply.latency == nil { reply.latency = Date().timeIntervalSince(started) }
+            self.reply = reply
+        }
+        self.delivery = delivery
         task = Task { [weak self] in
             guard let self else { return }
             do {
-                let text = try await self.request(job.question, job.recent, job.config) { [weak self] partial in
-                    Task { @MainActor in
-                        guard let self, self.generation == id, self.reply?.isStreaming == true else { return }
-                        self.reply?.text = partial
-                        if self.reply?.latency == nil { self.reply?.latency = Date().timeIntervalSince(started) }
-                    }
-                }
+                let text = try await self.request(job.question, job.recent, job.config) { delivery.submit($0) }
                 guard !Task.isCancelled, self.generation == id else { return }
-                self.reply?.text = text
-                self.reply?.isStreaming = false
-                if self.reply?.latency == nil { self.reply?.latency = Date().timeIntervalSince(started) }
+                delivery.cancel()
+                self.delivery = nil
+                self.reply = Reply(id: id, question: job.question, text: text, isStreaming: false,
+                                   latency: self.reply?.latency ?? Date().timeIntervalSince(started))
                 self.task = nil
                 self.startNext()
             } catch {
                 guard !Task.isCancelled, self.generation == id else { return }
+                delivery.finish()
+                self.delivery = nil
                 self.reply?.isStreaming = false
                 self.task = nil
                 self.error = error.localizedDescription
@@ -99,6 +104,8 @@ final class AnswerEngine: ObservableObject {
 
     private func cancelActive() {
         generation = UUID()
+        delivery?.cancel()
+        delivery = nil
         task?.cancel()
         task = nil
         reply?.isStreaming = false
