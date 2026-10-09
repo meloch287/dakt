@@ -36,6 +36,8 @@ final class AssistantPreferences: ObservableObject {
     @Published var engine: SpeechEngine { didSet { save(engine.rawValue, "engine") } }
     @Published var locale: String { didSet { save(locale, "locale") } }
     @Published var questionPause: TimeInterval { didSet { save(questionPause, "questionPause") } }
+    @Published var itVocabulary: Bool { didSet { save(itVocabulary, "itVocabulary") } }
+    @Published var speechTerms: String { didSet { save(speechTerms, "speechTerms") } }
     @Published var opacity: Double { didSet { save(opacity, "opacity") } }
     @Published var fontSize: Double { didSet { save(fontSize, "fontSize") } }
     @Published var stayOnTop: Bool { didSet { save(stayOnTop, "stayOnTop") } }
@@ -67,6 +69,8 @@ final class AssistantPreferences: ObservableObject {
                                       supportsClips: AudioClipTranscriber.isSupported)
         locale = value("locale") as? String ?? "ru-RU"
         questionPause = SpeechTiming.normalized(value("questionPause") as? Double ?? SpeechTiming.defaultPause)
+        itVocabulary = value("itVocabulary") as? Bool ?? preview
+        speechTerms = value("speechTerms") as? String ?? ""
         opacity = min(1, max(0.35, value("opacity") as? Double ?? 0.84))
         fontSize = min(32, max(13, value("fontSize") as? Double ?? 19))
         stayOnTop = value("stayOnTop") as? Bool ?? true
@@ -91,8 +95,13 @@ final class AssistantPreferences: ObservableObject {
             : LunaConfiguration(endpoint: endpoint, apiKey: apiKey, proxyToken: proxyToken)
         config.context = context
         config.resume = resumeText
+        config.technicalVocabulary = recognitionVocabulary
         guard config.isReady else { throw RecorderError.message("Подключите корпоративный прокси в настройках.") }
         return config
+    }
+
+    var recognitionVocabulary: [String] {
+        itVocabulary ? TechnicalVocabulary.hints(custom: speechTerms, context: [resumeText, context, meetingDetails]) : []
     }
 
     private func save(_ value: Any, _ key: String) {

@@ -52,6 +52,16 @@ struct AssistantSettingsView: View {
                     } else {
                         detail("Старый потоковый режим. Нужна включённая диктовка macOS. Если язык не поддерживает распознавание на устройстве, звук обрабатывается Apple.")
                     }
+                    Toggle("IT-собеседование", isOn: $preferences.itVocabulary)
+                    if preferences.itVocabulary {
+                        detail("Словарь языков, баз данных, сетей, тестирования и DevOps. Названия технологий из резюме и контекста передаются как подсказки распознавателю и модели. Короткий вопрос про «IP» без уточнений получает варианты про API и IP-адрес.")
+                        Text("Свои термины").font(.system(size: 12, weight: .medium))
+                        TextField("Например: gRPC, Kafka, ClickHouse", text: $preferences.speechTerms, axis: .vertical)
+                            .lineLimit(2...4)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityLabel("Свои термины для IT-собеседования")
+                        detail("Через запятую или с новой строки. До 50 своих коротких терминов; общий словарь ограничен 100 подсказками. Сам словарь не гарантирует безошибочное распознавание.")
+                    }
                     HStack {
                         Text("Пауза в конце вопроса")
                         Spacer()

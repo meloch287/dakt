@@ -33,14 +33,17 @@ final class RecordedSpeechStream: @unchecked Sendable {
     private static let maximumPendingParts = 8
 
     init(locale: String, pause: TimeInterval = SpeechTiming.defaultPause,
+         contextualStrings: [String] = [],
          prepare: @escaping Prepare = { try await AudioClipTranscriber.prepare(locale: $0) },
-         transcribe: @escaping Transcribe = { try await AudioClipTranscriber.recognize(file: $0, locale: $1) },
+         transcribe: Transcribe? = nil,
          now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
          onDraft: @escaping (String) -> Void,
          onUtterance: @escaping (String) -> Void, onError: @escaping (String) -> Void) {
         self.locale = locale
         self.prepare = prepare
-        self.transcribe = transcribe
+        self.transcribe = transcribe ?? { file, locale in
+            try await AudioClipTranscriber.recognize(file: file, locale: locale, contextualStrings: contextualStrings)
+        }
         self.now = now
         self.onDraft = onDraft
         self.onUtterance = onUtterance

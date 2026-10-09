@@ -7,6 +7,7 @@ final class AppleSpeechStream: @unchecked Sendable {
     private let queue = DispatchQueue(label: "dakt.speech.apple", qos: .userInitiated)
     private let recognizer: SFSpeechRecognizer
     private let pause: TimeInterval
+    private let contextualStrings: [String]
     private let onDraft: (String) -> Void
     private let onUtterance: (String) -> Void
     private let onError: (SpeechFailure) -> Void
@@ -23,13 +24,14 @@ final class AppleSpeechStream: @unchecked Sendable {
     private var buffer = UtteranceBuffer()
     private var turn = SpeechTurnBuffer()
 
-    init(locale: String, pause: TimeInterval = SpeechTiming.defaultPause, onDraft: @escaping (String) -> Void,
+    init(locale: String, pause: TimeInterval = SpeechTiming.defaultPause, contextualStrings: [String] = [], onDraft: @escaping (String) -> Void,
          onUtterance: @escaping (String) -> Void, onError: @escaping (SpeechFailure) -> Void) throws {
         guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: locale)), recognizer.isAvailable else {
             throw RecorderError.message("Распознавание macOS недоступно. Включите диктовку и проверьте выбранный язык в настройках.")
         }
         self.recognizer = recognizer
         self.pause = SpeechTiming.normalized(pause)
+        self.contextualStrings = Array(contextualStrings.prefix(100))
         self.onDraft = onDraft
         self.onUtterance = onUtterance
         self.onError = onError
@@ -89,6 +91,7 @@ final class AppleSpeechStream: @unchecked Sendable {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         request.addsPunctuation = true
+        request.contextualStrings = contextualStrings
         if recognizer.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition = true }
         self.request = request
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in

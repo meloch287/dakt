@@ -42,7 +42,7 @@ enum AudioClipTranscriber {
         throw RecorderError.message("Быстрые аудиофрагменты требуют macOS 26. На этой системе выберите режим «Диктовка macOS».")
     }
 
-    static func recognize(file: URL, locale identifier: String) async throws -> String {
+    static func recognize(file: URL, locale identifier: String, contextualStrings: [String] = []) async throws -> String {
         #if compiler(>=6.2)
         if #available(macOS 26, *) {
             guard let locale = await DictationTranscriber.supportedLocale(equivalentTo: Locale(identifier: identifier)) else {
@@ -61,6 +61,11 @@ enum AudioClipTranscriber {
             defer { reading.cancel() }
             return try await withTaskCancellationHandler {
                 do {
+                    if !contextualStrings.isEmpty {
+                        let context = AnalysisContext()
+                        context.contextualStrings[.general] = Array(contextualStrings.prefix(100))
+                        try await analyzer.setContext(context)
+                    }
                     let audio = try AVAudioFile(forReading: file)
                     let end = try await analyzer.analyzeSequence(from: audio)
                     try Task.checkCancellation()

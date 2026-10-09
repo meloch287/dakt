@@ -151,6 +151,21 @@ struct AssistantView: View {
                     .lineLimit(compact ? 1 : nil)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
+                if previous == nil, !waitingForNextAnswer, reply.question == assistant.transcript.last?.text,
+                   !assistant.recognitionAlternatives.isEmpty {
+                    HStack(spacing: 8) {
+                        Text("Уточнить:").font(.system(size: 11)).foregroundStyle(AssistantTheme.secondary)
+                        ForEach(assistant.recognitionAlternatives) { alternative in
+                            Button(alternative.term == "IP" ? "IP-адрес" : alternative.term) {
+                                assistant.answerAlternative(alternative)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .help("Уточнить вопрос и ответить сразу. Текущий ответ и очередь будут отменены.")
+                            .disabled(preferences.windowLocked || isPreview)
+                        }
+                    }
+                }
             }
             VStack(alignment: .leading, spacing: compact ? 4 : 12) {
                 HStack(spacing: 8) {

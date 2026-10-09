@@ -35,6 +35,7 @@ enum AssistantPreviewRenderer {
         panel.setContentSize(NSSize(width: 280, height: 240))
         try await verifyHideButton(panel: panel, assistant: assistant, preferences: preferences,
                                    interaction: interactionLock, name: "compact-locked-edge", locked: true, offset: -10, inactive: true)
+        try await renderVocabularyExamples(to: folder)
         panel.setContentSize(NSSize(width: 620, height: 500))
         assistant.answers.showExample(queued: 2)
         try await Task.sleep(nanoseconds: 250_000_000)
@@ -102,6 +103,31 @@ enum AssistantPreviewRenderer {
         print("Hide button: native mouse event passed")
         print("Native previews: \(folder.path)")
         print("Window: resizable=\(panel.styleMask.contains(.resizable)), opaque=\(panel.isOpaque), minimum=\(panel.contentMinSize)")
+    }
+
+    private static func renderVocabularyExamples(to folder: URL) async throws {
+        let preferences = AssistantPreferences(preview: true)
+        preferences.speechTerms = "gRPC, Kafka, ClickHouse"
+        let assistant = AssistantController(preferences: preferences, preview: true)
+        assistant.receive("Что такое IP?")
+        let answers = AnswerEngine { _, _, _, _ in
+            "API: интерфейс, через который программы обращаются друг к другу.\n\nIP: адрес устройства в сети, по которому к нему доставляются пакеты."
+        }
+        answers.ask("Что такое IP?", recent: [], config: LunaConfiguration())
+        let window = AssistantWindow()
+        let interaction = WindowInteractionLock(window: window) { preferences.windowLocked = false }
+        window.contentView = NSHostingView(rootView: AssistantView(
+            assistant: assistant, answers: answers, preferences: preferences,
+            onSettings: {}, onHide: {}, onLockControlChange: interaction.updateControlView,
+            onHideControlChange: interaction.updateHideControlView, isPreview: true))
+        window.orderFrontRegardless()
+        defer { answers.cancel(); window.close() }
+        for (name, size) in [("api-ip", NSSize(width: 620, height: 420)),
+                             ("api-ip-compact", NSSize(width: 280, height: 240))] {
+            window.setContentSize(size)
+            try await Task.sleep(nanoseconds: 250_000_000)
+            try snapshot(window.contentView!, to: folder.appendingPathComponent("\(name).png"))
+        }
     }
 
     private static func firstScrollView(in view: NSView) -> NSScrollView? {

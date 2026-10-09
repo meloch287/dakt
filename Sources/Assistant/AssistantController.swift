@@ -122,9 +122,11 @@ final class AssistantController: ObservableObject {
                     await self.stop()
                 }
             }
+            let vocabulary = preferences.recognitionVocabulary
             switch preferences.engine {
             case .clips:
                 let stream = RecordedSpeechStream(locale: preferences.locale, pause: preferences.questionPause,
+                                                  contextualStrings: vocabulary,
                                                   onDraft: draft, onUtterance: final, onError: failure)
                 recorded = stream
                 try await stream.start()
@@ -132,6 +134,7 @@ final class AssistantController: ObservableObject {
                 relay.route { stream.append($0) }
             case .apple:
                 let stream = try AppleSpeechStream(locale: preferences.locale, pause: preferences.questionPause,
+                                                   contextualStrings: vocabulary,
                                                    onDraft: draft, onUtterance: final) { [weak self] issue in
                     Task { @MainActor in
                         guard let self, self.generation == ticket else { return }
@@ -190,7 +193,8 @@ final class AssistantController: ObservableObject {
     }
 
     func receive(_ text: String) {
-        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = (preferences.itVocabulary ? TechnicalVocabulary.normalize(text) : text)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         let recent = transcript.map(\.text)
         transcript.append(Utterance(text: text))
@@ -201,11 +205,23 @@ final class AssistantController: ObservableObject {
     }
 
     func receiveDraft(_ text: String) {
-        if preferences.engine == .apple { draft = text }
+        if preferences.engine == .apple { draft = preferences.itVocabulary ? TechnicalVocabulary.normalize(text) : text }
         else { captureStatus = text }
     }
 
     var canAnswerLatest: Bool { !draft.isEmpty || !transcript.isEmpty }
+
+    var recognitionAlternatives: [TechnicalVocabulary.Alternative] {
+        guard preferences.itVocabulary, draft.isEmpty, let text = transcript.last?.text else { return [] }
+        return TechnicalVocabulary.alternatives(for: text)
+    }
+
+    func answerAlternative(_ alternative: TechnicalVocabulary.Alternative) {
+        guard recognitionAlternatives.contains(alternative), !transcript.isEmpty else { return }
+        transcript[transcript.count - 1] = Utterance(text: alternative.question)
+        captureStatus = ""
+        ask(alternative.question, recent: transcript.dropLast().map(\.text), interrupt: true)
+    }
 
     func answerLatest() {
         guard let text = draft.isEmpty ? transcript.last?.text : draft else { return }
