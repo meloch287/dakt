@@ -31,14 +31,14 @@ lipo -archs dist/Dakt.app/Contents/MacOS/DaktRecorder
 
 Скрипт создаёт локальное окружение в `.build/dmg-tools`, устанавливает закреплённую версию инструмента, рисует фон и собирает образ. В образ входят Dakt.app, ссылка на Applications, инструкция и лицензия. Личные настройки, аудиофайлы, резюме и ключи не копируются.
 
-Имя содержит версию из Info.plist и архитектуру, например `Dakt-v2.5.0-universal.dmg`. Рядом находится одноимённый файл `.sha256`.
+Имя содержит версию из Info.plist и архитектуру, например `Dakt-v2.5.1-universal.dmg`. Рядом находится одноимённый файл `.sha256`.
 
 Проверка:
 
 ```sh
 cd dist
-shasum -a 256 -c Dakt-v2.5.0-universal.dmg.sha256
-hdiutil verify Dakt-v2.5.0-universal.dmg
+shasum -a 256 -c Dakt-v2.5.1-universal.dmg.sha256
+hdiutil verify Dakt-v2.5.1-universal.dmg
 ```
 
 ## Подпись
@@ -81,9 +81,9 @@ swift build
 Первый публичный релиз может быть опубликован из проверенной локальной сборки:
 
 ```sh
-gh release create v2.5.0 \
-  dist/Dakt-v2.5.0-universal.dmg \
-  dist/Dakt-v2.5.0-universal.dmg.sha256 \
+gh release create v2.5.1 \
+  dist/Dakt-v2.5.1-universal.dmg \
+  dist/Dakt-v2.5.1-universal.dmg.sha256 \
   --repo meloch287/dakt --verify-tag \
-  --title "Dakt 2.5.0" --notes-file Documentation/releases/v2.5.0.md
+  --title "Dakt 2.5.1" --notes-file Documentation/releases/v2.5.1.md
 ```

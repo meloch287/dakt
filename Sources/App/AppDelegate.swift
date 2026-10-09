@@ -24,12 +24,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         assistant = AssistantController(preferences: preferences, preview: preview)
         panel = AssistantWindow()
         panel.delegate = self
-        interactionLock = WindowInteractionLock(window: panel) { [weak self] in self?.preferences.windowLocked = false }
+        interactionLock = WindowInteractionLock(window: panel, onHide: { [weak self] in self?.hideWindow() }) {
+            [weak self] in self?.preferences.windowLocked = false
+        }
         panel.contentView = NSHostingView(rootView: AssistantView(
             assistant: assistant, answers: assistant.answers, preferences: preferences,
             onSettings: { [weak self] in self?.showSettings() },
             onHide: { [weak self] in self?.hideWindow() },
-            onLockControlChange: { [weak self] view in self?.interactionLock.updateControlView(view) }, isPreview: preview))
+            onLockControlChange: { [weak self] view in self?.interactionLock.updateControlView(view) },
+            onHideControlChange: { [weak self] view in self?.interactionLock.updateHideControlView(view) }, isPreview: preview))
         if !preview { panel.setFrameAutosaveName("DaktAssistantWindow") }
         applyWindowPreferences()
         buildMenu()

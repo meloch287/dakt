@@ -15,6 +15,7 @@ struct AssistantView: View {
     let onSettings: () -> Void
     let onHide: () -> Void
     let onLockControlChange: (NSView) -> Void
+    let onHideControlChange: (NSView) -> Void
     var isPreview = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var copied = false
@@ -129,8 +130,11 @@ struct AssistantView: View {
             .help("Действия и история ответов")
             .accessibilityLabel("Действия")
             .disabled(preferences.windowLocked)
-            iconButton("minus", label: "Скрыть окно · \(preferences.hotKey.title)", action: onHide)
-                .disabled(preferences.windowLocked)
+            WindowHideButton(action: onHide, shortcutTitle: preferences.hotKey.title)
+                .frame(width: 28, height: 28)
+                .opacity(preferences.windowLocked ? 0 : 1)
+                .accessibilityHidden(preferences.windowLocked)
+                .background(WindowLockFrameReporter(onChange: onHideControlChange))
         }
         .padding(.horizontal, compact ? 12 : 14)
         .padding(.vertical, 10)
@@ -321,7 +325,10 @@ struct AssistantView: View {
     }
 
     private func iconButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: icon).font(.system(size: 12)).frame(width: 28, height: 28) }
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 12)).frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
             .buttonStyle(.plain)
             .foregroundStyle(AssistantTheme.secondary)
             .help(label)

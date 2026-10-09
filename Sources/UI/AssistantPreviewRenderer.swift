@@ -24,6 +24,18 @@ enum AssistantPreviewRenderer {
         try await Task.sleep(nanoseconds: 250_000_000)
         try await verifyLockCycle(panel: panel, preferences: preferences, interaction: interactionLock,
                                   folder: folder, name: "reopen", viaReopen: true)
+        for (name, locked, offset, inactive) in [("unlocked-edge", false, CGFloat(-10), false),
+                                                 ("unlocked-center", false, CGFloat(0), false),
+                                                 ("unlocked-inactive", false, CGFloat(-10), true),
+                                                 ("locked-center", true, CGFloat(0), true),
+                                                 ("locked-edge", true, CGFloat(-10), true)] {
+            try await verifyHideButton(panel: panel, assistant: assistant, preferences: preferences,
+                                       interaction: interactionLock, name: name, locked: locked, offset: offset, inactive: inactive)
+        }
+        panel.setContentSize(NSSize(width: 280, height: 240))
+        try await verifyHideButton(panel: panel, assistant: assistant, preferences: preferences,
+                                   interaction: interactionLock, name: "compact-locked-edge", locked: true, offset: -10, inactive: true)
+        panel.setContentSize(NSSize(width: 620, height: 500))
         assistant.answers.showExample(queued: 2)
         try await Task.sleep(nanoseconds: 250_000_000)
         try snapshot(panel.contentView!, to: folder.appendingPathComponent("answer-queue.png"))
@@ -100,6 +112,46 @@ enum AssistantPreviewRenderer {
         return nil
     }
 
+    private static func verifyHideButton(panel: AssistantWindow, assistant: AssistantController,
+                                         preferences: AssistantPreferences, interaction: WindowInteractionLock,
+                                         name: String, locked: Bool, offset: CGFloat, inactive: Bool) async throws {
+        _ = NSApp.delegate?.applicationShouldHandleReopen?(NSApp, hasVisibleWindows: panel.isVisible)
+        try await Task.sleep(nanoseconds: 250_000_000)
+        preferences.windowLocked = locked
+        try await Task.sleep(nanoseconds: 250_000_000)
+        if inactive { NSApp.deactivate() }
+        let state = assistant.state
+        let host = panel.contentView!
+        let point = host.convert(NSPoint(x: host.bounds.width - 28 + offset,
+                                        y: host.isFlipped ? 24 + offset : host.bounds.height - 24 + offset), to: nil)
+        let screen = panel.convertPoint(toScreen: point)
+        let targetNumber = NSWindow.windowNumber(at: screen, belowWindowWithWindowNumber: 0)
+        guard let target = NSApp.windows.first(where: { $0.windowNumber == targetNumber }) else {
+            print("Hide geometry \(name): point=\(screen), control=\(String(describing: interaction.hidePanel?.frame)), inside=\(interaction.hidePanel?.frame.contains(screen) ?? false)")
+            throw RecorderError.message("Клик по «−» уходит в другое приложение: \(name).")
+        }
+        click(window: target, at: target.convertPoint(fromScreen: screen))
+        try await Task.sleep(nanoseconds: 250_000_000)
+        interaction.synchronize()
+        guard !panel.isVisible, interaction.unlockPanel?.isVisible != true, interaction.hidePanel?.isVisible != true,
+              assistant.state == state else {
+            throw RecorderError.message("Кнопка «−» не скрыла окно или изменила прослушивание: \(name).")
+        }
+        print("Hide \(name): click hides the window and keeps listening unchanged")
+        // Этот же selector вызывает глобальная горячая клавиша. Возврат
+        // должен сохранить замок и вновь показать обе доступные кнопки.
+        guard NSApp.sendAction(Selector(("toggleWindow")), to: NSApp.delegate, from: nil) else {
+            throw RecorderError.message("Не найдено действие горячей клавиши.")
+        }
+        try await Task.sleep(nanoseconds: 250_000_000)
+        guard panel.isVisible, preferences.windowLocked == locked,
+              !locked || (interaction.hidePanel?.isVisible == true && interaction.unlockPanel?.isVisible == true) else {
+            throw RecorderError.message("Возврат окна не восстановил управление: \(name).")
+        }
+        _ = NSApp.delegate?.applicationShouldHandleReopen?(NSApp, hasVisibleWindows: false)
+        try await Task.sleep(nanoseconds: 250_000_000)
+    }
+
     private static func verifyLockCycle(panel: AssistantWindow, preferences: AssistantPreferences,
                                         interaction: WindowInteractionLock, folder: URL, name: String,
                                         viaReopen: Bool = false) async throws {
@@ -123,6 +175,9 @@ enum AssistantPreviewRenderer {
         try snapshot(host, to: folder.appendingPathComponent("locked-\(name).png"))
         if let control = unlock.contentView {
             try snapshot(control, to: folder.appendingPathComponent("unlock-control.png"))
+        }
+        if let control = interaction.hidePanel?.contentView {
+            try snapshot(control, to: folder.appendingPathComponent("hide-control.png"))
         }
         if viaReopen {
             _ = NSApp.delegate?.applicationShouldHandleReopen?(NSApp, hasVisibleWindows: true)

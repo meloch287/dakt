@@ -5,6 +5,17 @@ import XCTest
 
 final class WindowLockTests: XCTestCase {
     @MainActor
+    func testHideControlAcceptsFirstClickAndDoesNotStartWindowDragging() {
+        _ = NSApplication.shared
+        var hides = 0
+        let button = WindowHideButton.makeControl(action: { hides += 1 })
+        XCTAssertTrue(button.acceptsFirstMouse(for: nil))
+        XCTAssertFalse(button.mouseDownCanMoveWindow)
+        button.performClick(nil)
+        XCTAssertEqual(hides, 1)
+    }
+
+    @MainActor
     func testLockWithoutAnAvailableUnlockControlKeepsInputEnabled() async {
         _ = NSApplication.shared
         let window = AssistantWindow()
@@ -26,7 +37,8 @@ final class WindowLockTests: XCTestCase {
         let interaction = WindowInteractionLock(window: window) { preferences.windowLocked = false }
         window.contentView = NSHostingView(rootView: AssistantView(
             assistant: assistant, answers: assistant.answers, preferences: preferences,
-            onSettings: {}, onHide: {}, onLockControlChange: interaction.updateControlView, isPreview: true))
+            onSettings: {}, onHide: {}, onLockControlChange: interaction.updateControlView,
+            onHideControlChange: interaction.updateHideControlView, isPreview: true))
         window.orderFront(nil)
         defer { interaction.setLocked(false); window.close() }
         for size in [NSSize(width: 715, height: 519), NSSize(width: 280, height: 180),
@@ -43,6 +55,10 @@ final class WindowLockTests: XCTestCase {
             XCTAssertEqual(window.frame, frame, "Lock must not resize the hosted window")
             XCTAssertTrue(window.frame.contains(unlock.frame), "Unlock button must stay inside its window")
             XCTAssertTrue(unlock.isVisible)
+            let hide = try XCTUnwrap(interaction.hidePanel)
+            XCTAssertTrue(hide.isVisible)
+            XCTAssertTrue(window.frame.contains(hide.frame))
+            XCTAssertFalse(hide.frame.intersects(unlock.frame))
         }
     }
 
